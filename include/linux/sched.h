@@ -487,10 +487,10 @@ struct signal_struct {
 #ifdef CONFIG_CGROUPS
 	struct rw_semaphore group_rwsem;
 #endif
-
-	int oom_adj;		
-	int oom_score_adj;	
-	int oom_score_adj_min;	
+	short oom_adj;		/* OOM kill score adjustment (bit shift) */
+	short oom_score_adj;	/* OOM kill score adjustment */
+	short oom_score_adj_min;	/* OOM kill score adjustment minimum value.
+ 				 * Only settable by CAP_SYS_RESOURCE. */
 
 	struct mutex cred_guard_mutex;	
 };
