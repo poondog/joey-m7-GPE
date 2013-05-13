@@ -43,6 +43,16 @@ struct cpu_context_save {
 	__u32	extra[2];		
 };
 
+struct arm_restart_block {
+	union {
+		/* For user cache flushing */
+		struct {
+			unsigned long start;
+			unsigned long end;
+		} cache;
+	};
+};
+
 struct thread_info {
 	unsigned long		flags;		
 	int			preempt_count;	
@@ -62,6 +72,7 @@ struct thread_info {
 	unsigned long		thumbee_state;	
 #endif
 	struct restart_block	restart_block;
+	struct arm_restart_block	arm_restart_block;
 };
 
 #define INIT_THREAD_INFO(tsk)						\
