@@ -273,7 +273,7 @@ static int bma250_set_int1_pad_sel(struct i2c_client *client, unsigned char
 		int1sel)
 {
 	int comres = 0;
-	unsigned char data;
+	unsigned char data = 0;
 	unsigned char state;
 	state = 0x01;
 
@@ -347,7 +347,7 @@ static int bma250_set_int2_pad_sel(struct i2c_client *client, unsigned char
 		int2sel)
 {
 	int comres = 0;
-	unsigned char data;
+	unsigned char data = 0;
 	unsigned char state;
 	state = 0x01;
 
@@ -421,7 +421,7 @@ static int bma250_set_Int_Enable(struct i2c_client *client, unsigned char
 		InterruptType , unsigned char value)
 {
 	int comres = 0;
-	unsigned char data1, data2;
+	unsigned char data1 = 0, data2 = 0;
 
 
 	comres = bma250_smbus_read_byte(client, BMA250_INT_ENABLE1_REG, &data1);
