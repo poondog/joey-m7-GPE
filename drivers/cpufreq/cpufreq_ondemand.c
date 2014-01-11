@@ -26,22 +26,18 @@
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-	
-#ifdef CONFIG_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
 
-#define DEF_SAMPLING_RATE			(15000)
+#define DEF_SAMPLING_RATE				(50000)
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
-#define DEF_FREQUENCY_UP_THRESHOLD		(90)
+#define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
@@ -56,12 +52,6 @@
 #define MIN_SAMPLING_RATE_RATIO			(2)
 
 static unsigned int min_sampling_rate;
-
-#ifdef CONFIG_EARLYSUSPEND
-bool screen_is_on = true;
-static unsigned long stored_sampling_rate;
-#endif
-
 static unsigned int skip_ondemand = 0;
 
 #define LATENCY_MULTIPLIER			(1000)
@@ -140,10 +130,6 @@ static inline void switch_normal_mode(void);
 #endif
 
 static DEFINE_MUTEX(dbs_mutex);
-
-#ifndef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
-static struct cpufreq_governor cpufreq_gov_ondemand;
-#endif
 
 static struct dbs_tuners {
 	unsigned int sampling_rate;
@@ -393,7 +379,6 @@ static void update_sampling_rate(unsigned int new_rate)
 	dbs_tuners_ins.sampling_rate = new_rate
 				     = max(new_rate, min_sampling_rate);
 
-	get_online_cpus();
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
 		struct cpu_dbs_info_s *dbs_info;
@@ -402,10 +387,6 @@ static void update_sampling_rate(unsigned int new_rate)
 		policy = cpufreq_cpu_get(cpu);
 		if (!policy)
 			continue;
-                if (policy->governor != &cpufreq_gov_ondemand) {
-                        cpufreq_cpu_put(policy);
-                        continue;
-                }
 		dbs_info = &per_cpu(od_cpu_dbs_info, policy->cpu);
 		cpufreq_cpu_put(policy);
 
@@ -431,7 +412,6 @@ static void update_sampling_rate(unsigned int new_rate)
 		}
 		mutex_unlock(&dbs_info->timer_mutex);
 	}
-	put_online_cpus();
 }
 
 show_one(ui_timeout, ui_timeout);
@@ -1534,28 +1514,7 @@ static void dbs_input_disconnect(struct input_handle *handle)
 }
 
 static const struct input_device_id dbs_ids[] = {
-	/* multi-touch touchscreen */
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.evbit = { BIT_MASK(EV_ABS) },
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-			BIT_MASK(ABS_MT_POSITION_X) |
-			BIT_MASK(ABS_MT_POSITION_Y) },
-	},
-	/* touchpad */
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
-			INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
-		.absbit = { [BIT_WORD(ABS_X)] =
-			BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
-	},
-	/* Keypad */
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
-		.evbit = { BIT_MASK(EV_KEY) },
-	},
+	{ .driver_info = 1 },
 	{ },
 };
 
@@ -1625,9 +1584,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			if (latency == 0)
 				latency = 1;
 			
-			min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE;
-			dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
-
+			min_sampling_rate = max(min_sampling_rate,
+					MIN_LATENCY_MULTIPLIER * latency);
+			dbs_tuners_ins.sampling_rate =
+				max(min_sampling_rate,
+				    latency * LATENCY_MULTIPLIER);
 			if (dbs_tuners_ins.sampling_rate < DEF_SAMPLING_RATE)
 				dbs_tuners_ins.sampling_rate = DEF_SAMPLING_RATE;
 			dbs_tuners_ins.origin_sampling_rate = dbs_tuners_ins.sampling_rate;
@@ -1747,30 +1708,6 @@ bail_acq_sema_failed:
 	return 0;
 }
 
-#ifdef CONFIG_EARLYSUSPEND
-static void cpufreq_ondemand_early_suspend(struct early_suspend *h)
-{
-        mutex_lock(&dbs_mutex);
-        screen_is_on = false;
-        stored_sampling_rate = min_sampling_rate;
-        min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE * 6;
-        mutex_unlock(&dbs_mutex);
-}
-static void cpufreq_ondemand_late_resume(struct early_suspend *h)
-{
-        mutex_lock(&dbs_mutex);
-        min_sampling_rate = stored_sampling_rate;
-        screen_is_on = true;
-        mutex_unlock(&dbs_mutex);
-}
-	
-static struct early_suspend cpufreq_ondemand_early_suspend_info = {
-        .suspend = cpufreq_ondemand_early_suspend,
-        .resume = cpufreq_ondemand_late_resume,
-        .level = EARLY_SUSPEND_LEVEL_DISABLE_FB,
-};	
-#endif
-
 static int __init cpufreq_gov_dbs_init(void)
 {
 	u64 idle_time;
@@ -1810,9 +1747,6 @@ static int __init cpufreq_gov_dbs_init(void)
 			per_cpu(up_task, i) = pthread;
 		}
 	}
-#ifdef CONFIG_EARLYSUSPEND
-	register_early_suspend(&cpufreq_ondemand_early_suspend_info);
-#endif
 	return cpufreq_register_governor(&cpufreq_gov_ondemand);
 }
 
@@ -1821,9 +1755,6 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	unsigned int i;
 
 	cpufreq_unregister_governor(&cpufreq_gov_ondemand);
-#ifdef CONFIG_EARLYSUSPEND
-	unregister_early_suspend(&cpufreq_ondemand_early_suspend_info);
-#endif
 	for_each_possible_cpu(i) {
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
