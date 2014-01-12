@@ -216,8 +216,8 @@ static int button_id = 0;
 static int s2w_switch = 2;
 static int l2m_switch = 0;
 static int l2w_switch = 0;
-static int dt2w_switch = 0;
-static int pocket_detect = 0;
+static int dt2w_switch = 1;
+static int pocket_detect = 1;
 static int s2w_hist[2] = {0, 0};
 static unsigned long s2w_time[3] = {0, 0, 0};
 static unsigned long l2m_time[2] = {0, 0};
@@ -226,7 +226,7 @@ static unsigned int dt2w_x[2] = {0, 0};
 static unsigned int dt2w_y[2] = {0, 0};
 static unsigned long pwrtrigger_time[2] = {0, 0};
 static int wakesleep_vib = 0;
-static int vib_strength = 15;
+static int vib_strength = 22;
 static int break_longtap_count = 0;
 
 extern uint8_t touchscreen_is_on(void)
