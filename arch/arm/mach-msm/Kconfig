@@ -2936,13 +2936,13 @@ config IOEXTENDER
 
 config UPDATE_LCDC_LUT
         bool "Set initial Qualcomm LCDC lut"
-        default y
+        default n
         help
           Set initial Qualcomm LCDC Look Up Table.
 
 config LCD_KCAL
         tristate "MSM generic LCDC Calibration"
-        default y
+        default n
         help
           Enable MSM generic LCDC temperature Calibration.
 
