@@ -1548,7 +1548,7 @@ rcu_boot_init_percpu_data(int cpu, struct rcu_state *rsp)
 	raw_spin_unlock_irqrestore(&rnp->lock, flags);
 }
 
-static void
+static void __cpuinit
 rcu_init_percpu_data(int cpu, struct rcu_state *rsp, int preemptible)
 {
 	unsigned long flags;
