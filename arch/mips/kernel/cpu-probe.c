@@ -1093,7 +1093,7 @@ EXPORT_SYMBOL(__ua_limit);
 const char *__cpu_name[NR_CPUS];
 const char *__elf_platform;
 
-void cpu_probe(void)
+__cpuinit void cpu_probe(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int cpu = smp_processor_id();
@@ -1177,7 +1177,7 @@ void cpu_probe(void)
 #endif
 }
 
-void cpu_report(void)
+__cpuinit void cpu_report(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 
